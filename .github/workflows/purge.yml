@@ -1,0 +1,20 @@
+# Tự xoá cache jsDelivr cho các file vừa thay đổi mỗi lần push lên main
+name: Purge jsDelivr
+on:
+  push:
+    branches: [main]
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Purge file đã đổi
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          base="$BEFORE"; git cat-file -e "$base" 2>/dev/null || base="$(git rev-list --max-parents=0 HEAD)"
+          git -c core.quotepath=off diff --name-only --diff-filter=AMR "$base" HEAD | while IFS= read -r f; do
+            url="https://purge.jsdelivr.net/gh/${{ github.repository }}@main/$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$f")"
+            echo "$f -> $(curl -s "$url" | head -c 200)"
+          done
